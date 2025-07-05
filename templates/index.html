@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="input-section">
+        <h2>1. Define Your Constraints</h2>
+        <form id="investment-form">
+            <label for="budget">Organizational Budget (£):</label>
+            <input type="number" id="budget" name="budget" value="100000">
+
+            <label for="assets">Critical Assets (comma-separated):</label>
+            <input type="text" id="assets" name="assets" value="Customer Database,Payment Gateway,Source Code">
+            
+            <button type="submit">Optimize Now</button>
+        </form>
+    </div>
+
+    <div class="output-section">
+        <h2>2. Optimized Recommendations</h2>
+        <div id="results">
+            <p>Your optimized investment portfolio will be displayed here.</p>
+        </div>
+    </div>
+
+    <div class="visualization-section">
+        <h2>3. Data Visualization</h2>
+        <div id="bokeh-chart">
+            <p>(Interactive Bokeh chart will be embedded here)</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('investment-form').addEventListener('submit', async function(event) {
+        // Prevent the form from submitting the traditional way
+        event.preventDefault();
+
+        // 1. Get user input from the form
+        const budget = document.getElementById('budget').value;
+        const assetsValue = document.getElementById('assets').value;
+        const assets = assetsValue.split(',').map(asset => asset.trim()); // Convert comma-separated string to a list
+
+        // Show a loading message
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = '<p>Optimizing portfolio... Please wait.</p>';
+
+        try {
+            // 2. Call the Flask API endpoint using fetch()
+            const response = await fetch('/api/v1/optimize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    budget: parseFloat(budget),
+                    assets: assets
+                }),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // 3. Get the JSON data from the response
+            const data = await response.json();
+
+            // 4. Build the HTML to display the results
+            let resultsHTML = `
+                <h4>Optimization Results:</h4>
+                <p><strong>Total Cost:</strong> £${data.total_cost.toLocaleString()}</p>
+                <p><strong>Projected Risk Reduction:</strong> ${(data.projected_risk_reduction * 100).toFixed(0)}%</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Recommended Control</th>
+                            <th>Cost</th>
+                            <th>Risk Reduction</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.investments.forEach(item => {
+                resultsHTML += `
+                    <tr>
+                        <td>${item.control}</td>
+                        <td>£${item.cost.toLocaleString()}</td>
+                        <td>${(item.risk_reduction * 100).toFixed(0)}%</td>
+                    </tr>
+                `;
+            });
+
+            resultsHTML += `
+                    </tbody>
+                </table>
+                <p class="message"><em>${data.message}</em></p>
+            `;
+
+            // 5. Update the page with the new HTML
+            resultsDiv.innerHTML = resultsHTML;
+
+        } catch (error) {
+            // Display an error message if the API call fails
+            resultsDiv.innerHTML = `<p style="color: red;"><strong>Error:</strong> Could not retrieve optimization results. Please try again later.</p>`;
+            console.error('Fetch error:', error);
+        }
+    });
+</script>
+
+{% endblock %}
